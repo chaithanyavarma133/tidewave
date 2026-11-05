@@ -1,0 +1,24 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function admin() { return request.auth != null && request.auth.token.admin == true; }
+    function validSong() {
+      let s = request.resource.data;
+      return s.keys().hasAll(['title','artist','genre','src','duration','createdAt','createdBy'])
+        && s.keys().hasOnly(['title','artist','genre','src','duration','createdAt','createdBy'])
+        && s.title is string && s.title.size() > 0 && s.title.size() <= 120
+        && s.artist is string && s.artist.size() > 0 && s.artist.size() <= 120
+        && s.genre in ['electronic','chill','ambient']
+        && s.src is string && s.src.size() <= 2048 && s.src.matches('https://.*')
+        && s.duration is number && s.duration > 0 && s.duration <= 86400
+        && s.createdBy == request.auth.uid && s.createdAt == request.time;
+    }
+    match /songs/{songId} {
+      allow read: if true;
+      allow create: if admin() && validSong();
+      allow delete: if admin();
+      allow update: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
